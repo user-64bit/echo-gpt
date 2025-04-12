@@ -1,10 +1,11 @@
 # Echo GPT
 
-A Chrome extension that enhances your ChatGPT experience by adding bookmark functionality.
+A Chrome extension that enhances your ChatGPT experience by adding bookmark and pinned conversations feature.
 
 ## Features
 
 - Bookmark your favorite ChatGPT conversations
+- Pin your favorite ChatGPT conversations
 - Easily access your bookmarked conversations through a sidebar
 - Works directly on the ChatGPT web interface
 
