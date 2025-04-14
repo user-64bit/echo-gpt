@@ -13,15 +13,25 @@ interface ChatGPTStorageData {
 type ChromeStorageData = { [key: string]: any }
 
 function initializeBookmarkFeature(): void {
-  addBookmarkButton()
+  addBookmarkSidebar()
   checkCurrentPageBookmarkStatus()
 
+  if (window.location.href.includes('/c/')) {
+    addBookmarkButton()
+    checkCurrentPageBookmarkStatus()
+  }
+
   const observer = new MutationObserver(() => {
-    if (!document.querySelector('button[aria-label="Bookmark"]')) {
+    if (
+      window.location.href.includes('/c/') &&
+      !document.querySelector('button[aria-label="Bookmark"]')
+    ) {
       addBookmarkButton()
     }
 
-    checkCurrentPageBookmarkStatus()
+    if (window.location.href.includes('/c/')) {
+      checkCurrentPageBookmarkStatus()
+    }
   })
 
   observer.observe(document.body, { childList: true, subtree: true })
@@ -50,8 +60,6 @@ function addBookmarkButton(): void {
   })
 
   shareButton.parentNode?.insertBefore(bookmarkButton, shareButton)
-
-  addBookmarkSidebar()
 }
 
 function updateBookmarkButtonState(button: HTMLButtonElement): void {
@@ -86,6 +94,9 @@ function updateBookmarkButtonState(button: HTMLButtonElement): void {
 }
 
 function handleBookmarkClick(button: HTMLButtonElement): void {
+  if (!window.location.href.includes('/c/')) {
+    return
+  }
   const allHrefs = document.querySelectorAll('ol a')
   const hrefs = Array.from(allHrefs).filter(
     (href) =>
@@ -202,6 +213,10 @@ function addBookmarkSidebar(): void {
     }
     #bookmark-sidebar-toggle {
       opacity: 0.7;
+      z-index: 1000;
+    }
+    #bookmark-sidebar {
+      z-index: 1001;
     }
     #bookmark-sidebar-toggle:hover {
       opacity: 1;

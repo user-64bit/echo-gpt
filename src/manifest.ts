@@ -27,7 +27,7 @@ export default defineManifest({
   },
   content_scripts: [
     {
-      matches: ['https://chatgpt.com/c/*'],
+      matches: ['https://chatgpt.com/*'],
       js: ['src/contentScript/index.ts'],
     },
   ],
