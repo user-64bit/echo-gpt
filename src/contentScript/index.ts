@@ -278,7 +278,7 @@ function handleBookmarkClick(button: HTMLButtonElement): void {
       bookmarks.splice(existingIndex, 1)
       chrome.storage.sync.set({ chatgptBookmarks: bookmarks }, () => {
         updateBookmarkButtonState(button)
-        showBookmarkConfirmation(`"${title}" removed from bookmarks`)
+        showBookmarkConfirmation(`"${title}" removed from bookmarks`, 'removed')
       })
     } else {
       bookmarks.push({
@@ -291,28 +291,75 @@ function handleBookmarkClick(button: HTMLButtonElement): void {
 
       chrome.storage.sync.set({ chatgptBookmarks: bookmarks }, () => {
         updateBookmarkButtonState(button)
-        showBookmarkConfirmation(`"${title}" bookmarked successfully!!!!`)
+        showBookmarkConfirmation(`"${title}" bookmarked successfully!!!!`, 'added')
       })
     }
   })
 }
 
-function showBookmarkConfirmation(message: string): void {
+function showBookmarkConfirmation(message: string, type: 'added' | 'removed' = 'added'): void {
   const toast = document.createElement('div')
-  toast.className =
-    'fixed bottom-4 right-4 bg-green-600 text-white px-4 py-2 rounded shadow-lg z-50 flex items-center'
+  
+  const isAdded = type === 'added'
+  const bgColor = isAdded ? 'rgb(33,32,32)' : 'rgb(45, 33, 33)'
+  const borderColor = isAdded ? 'rgb(16, 163, 127)' : 'rgb(239, 68, 68)'
+  const iconColor = isAdded ? 'rgb(16, 163, 127)' : 'rgb(239, 68, 68)'
+  
+  toast.style.cssText = `
+    position: fixed;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-20px);
+    background: ${bgColor};
+    color: rgb(217, 217, 227);
+    border: 1px solid ${borderColor};
+    border-radius: 8px;
+    padding: 12px 16px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: none;
+    min-width: 280px;
+    max-width: 400px;
+    text-align: center;
+  `
+
+  const icon = isAdded 
+    ? `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
+         <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+         <polyline points="22 4 12 14.01 9 11.01"></polyline>
+       </svg>`
+    : `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
+         <circle cx="12" cy="12" r="10"></circle>
+         <path d="m15 9-6 6"></path>
+         <path d="m9 9 6 6"></path>
+       </svg>`
+  
   toast.innerHTML = `
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2">
-      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-      <polyline points="22 4 12 14.01 9 11.01"></polyline>
-    </svg>
-    <span>${message}</span>
+    ${icon}
+    <span style="flex: 1;">${message}</span>
   `
 
   document.body.appendChild(toast)
 
+  // Trigger animation
+  requestAnimationFrame(() => {
+    toast.style.opacity = '1'
+    toast.style.transform = 'translateX(-50%) translateY(0)'
+  })
+
   setTimeout(() => {
-    toast.remove()
+    toast.style.opacity = '0'
+    toast.style.transform = 'translateX(-50%) translateY(-10px)'
+    setTimeout(() => {
+      toast.remove()
+    }, 300)
   }, 3000)
 }
 
