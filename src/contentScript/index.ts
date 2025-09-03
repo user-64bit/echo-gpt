@@ -137,7 +137,7 @@ function updateBookmarkButtonState(button: HTMLButtonElement): void {
     if (isBookmarked) {
       button.innerHTML = `
         <div class="flex items-center justify-center gap-2" style="pointer-events: none;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
           </svg>
           <span>Bookmarked</span>
@@ -147,7 +147,7 @@ function updateBookmarkButtonState(button: HTMLButtonElement): void {
     } else {
       button.innerHTML = `
         <div class="flex items-center justify-center gap-2" style="pointer-events: none;">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
           </svg>
           <span>Bookmark</span>
@@ -331,11 +331,11 @@ function showBookmarkConfirmation(message: string, type: 'added' | 'removed' = '
   `
 
   const icon = isAdded
-    ? `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
+    ? `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
          <polyline points="22 4 12 14.01 9 11.01"></polyline>
        </svg>`
-    : `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
+    : `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${iconColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;">
          <circle cx="12" cy="12" r="10"></circle>
          <path d="m15 9-6 6"></path>
          <path d="m9 9 6 6"></path>
@@ -642,11 +642,53 @@ function loadBookmarks(): void {
       })
 
       html += `
-        <div class="py-4 px-3 mb-3 rounded-lg bg-[#1E1E1E] border border-[#2A2A2A] hover:border-[#3A3A3A] transition-colors duration-200 shadow-sm cursor-pointer" data-url="${bookmark.url}">
-          <div class="font-medium text-white truncate" title="${bookmark.title}">${bookmark.title}</div>
-          <div class="text-xs text-gray-400 mt-1.5">${formattedDate}</div>
-          <div class="flex gap-2 mt-3">
-            <button class="open-btn flex items-center gap-1.5 px-3 py-1.5 text-xs bg-[#2A2A2A] hover:bg-[#3A3A3A] text-white rounded-md transition-colors duration-200" data-url="${bookmark.url}">
+        <div class="bookmark-item group relative p-4 mb-3 rounded-xl transition-all duration-300 cursor-pointer ${bookmark.pinned ? 'pinned-bookmark' : 'regular-bookmark'}" data-url="${bookmark.url}" style="
+          background: linear-gradient(135deg, ${bookmark.pinned ? '#1a2332' : '#1a1a1a'} 0%, ${bookmark.pinned ? '#0f1419' : '#121212'} 100%);
+          border: 1px solid ${bookmark.pinned ? '#2563eb40' : '#333333'};
+          box-shadow: 0 2px 8px rgba(0,0,0,0.15), 0 1px 4px rgba(0,0,0,0.1);
+          transform: translateY(0);
+        " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 25px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.2)'; this.style.borderColor='${bookmark.pinned ? '#3b82f6' : '#4a5568'}';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.15), 0 1px 4px rgba(0,0,0,0.1)'; this.style.borderColor='${bookmark.pinned ? '#2563eb40' : '#333333'}';">
+          ${bookmark.pinned ? `
+            <div class="absolute top-3 right-3 flex items-center justify-center w-6 h-6 bg-blue-500 bg-opacity-20 rounded-full">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" style="color: #3b82f6;">
+                <path d="M16 3V5H18V9L21 12V13H14V21H10V13H3V12L6 9V5H8V3H16Z"/>
+              </svg>
+            </div>
+          ` : ''}
+          <div class="flex items-start gap-3 mb-3">
+            <div class="flex-shrink-0 mt-1">
+              <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="
+                background: linear-gradient(135deg, ${bookmark.pinned ? '#3b82f6' : '#4a5568'} 0%, ${bookmark.pinned ? '#1e40af' : '#2d3748'} 100%);
+                box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+              ">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="color: white;">
+                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+                </svg>
+              </div>
+            </div>
+            <div class="flex-1 min-w-0">
+              <h3 class="font-semibold text-white text-sm leading-5 mb-1" style="
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+                overflow: hidden;
+                line-height: 1.4;
+              " title="${bookmark.title}">${bookmark.title}</h3>
+              <div class="flex items-center gap-2 text-xs" style="color: #9ca3af;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+                <span>${formattedDate}</span>
+              </div>
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <button class="open-btn flex-1 flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium text-white rounded-lg transition-all duration-200 hover:scale-105 active:scale-95" 
+              style="background: linear-gradient(135deg, #059669 0%, #047857 100%); box-shadow: 0 2px 4px rgba(5,150,105,0.3);" 
+              onmouseover="this.style.background='linear-gradient(135deg, #10b981 0%, #059669 100%)'; this.style.boxShadow='0 4px 8px rgba(5,150,105,0.4)';"
+              onmouseout="this.style.background='linear-gradient(135deg, #059669 0%, #047857 100%)'; this.style.boxShadow='0 2px 4px rgba(5,150,105,0.3)';"
+              data-url="${bookmark.url}">
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
                 <polyline points="15 3 21 3 21 9"></polyline>
@@ -654,19 +696,27 @@ function loadBookmarks(): void {
               </svg>
               Open
             </button>
-            <button class="delete-btn flex items-center gap-1.5 px-3 py-1.5 text-xs bg-[#2A2A2A] hover:bg-[#3A3A3A] text-white rounded-md transition-colors duration-200" data-id="${bookmark.id}">
+            <button class="delete-btn flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-white rounded-lg transition-all duration-200 hover:scale-105 active:scale-95" 
+              style="background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); box-shadow: 0 2px 4px rgba(107,114,128,0.3);"
+              onmouseover="this.style.background='linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)'; this.style.boxShadow='0 4px 8px rgba(220,38,38,0.4)';"
+              onmouseout="this.style.background='linear-gradient(135deg, #6b7280 0%, #4b5563 100%)'; this.style.boxShadow='0 2px 4px rgba(107,114,128,0.3)';" data-id="${bookmark.id}">
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polyline points="3 6 5 6 21 6"></polyline>
                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
               </svg>
               Remove
             </button>
-            <button class="pin-btn flex items-center gap-1.5 px-3 py-1.5 text-xs bg-[#2A2A2A] hover:bg-[#3A3A3A] text-white rounded-md transition-colors duration-200" data-id="${bookmark.id}">
+            <button class="pin-btn flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg transition-all duration-200 hover:scale-105 active:scale-95" 
+              style="background: ${bookmark.pinned ? 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)' : 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)'}; 
+                     color: white; 
+                     box-shadow: 0 2px 4px ${bookmark.pinned ? 'rgba(220,38,38,0.3)' : 'rgba(59,130,246,0.3)'};"
+              onmouseover="this.style.background='${bookmark.pinned ? 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)' : 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%)'}'; this.style.boxShadow='0 4px 8px ${bookmark.pinned ? 'rgba(220,38,38,0.4)' : 'rgba(59,130,246,0.4)'}';"
+              onmouseout="this.style.background='${bookmark.pinned ? 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)' : 'linear-gradient(135deg, #3b82f6 0%, #1e40af 100%)'}'; this.style.boxShadow='0 2px 4px ${bookmark.pinned ? 'rgba(220,38,38,0.3)' : 'rgba(59,130,246,0.3)'}';" data-id="${bookmark.id}">
               ${bookmark.pinned
-          ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+          ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
                       <path d="M16 3V5H18V9L21 12V13H14V21H10V13H3V12L6 9V5H8V3H16Z"/>
                     </svg>`
-          : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"xmlns="http://www.w3.org/2000/svg">
+          : `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"xmlns="http://www.w3.org/2000/svg">
                       <path d="M16 3V5H18V9L21 12V13H14V21H10V13H3V12L6 9V5H8V3H16Z"/>
                     </svg>`
         }
