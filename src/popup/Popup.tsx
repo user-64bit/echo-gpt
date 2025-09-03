@@ -41,7 +41,9 @@ export const Popup = () => {
     <main className="w-[280px] bg-gradient-to-b from-indigo-50 to-white p-0">
       <header className="px-4 pt-4 pb-3 bg-white/70 backdrop-blur sticky top-0">
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-xl bg-indigo-100 flex items-center justify-center text-2xl">🔊</div>
+          <div className="h-9 w-9 rounded-xl bg-indigo-100 flex items-center justify-center text-2xl">
+            <img src="/img/logo-48.png" alt="Echo GPT" className="w-full h-full object-cover" />
+          </div>
           <div className="flex-1">
             <h1 className="text-lg font-semibold text-gray-900 leading-tight">Echo GPT</h1>
             <p className="text-xs text-gray-500">A Chrome extension that enhances your ChatGPT experience by adding bookmark and pinned conversations feature.</p>
