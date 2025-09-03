@@ -25,6 +25,15 @@ export default defineManifest({
     service_worker: 'src/background/index.ts',
     type: 'module',
   },
+  commands: {
+    'hard-reload': {
+      suggested_key: {
+        default: 'Alt+Shift+R',
+        mac: 'Alt+Shift+R',
+      },
+      description: 'Hard reload active tab (bypass cache)',
+    },
+  },
   content_scripts: [
     {
       matches: ['https://chatgpt.com/*'],
