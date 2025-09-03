@@ -13,7 +13,6 @@ interface ChatGPTStorageData {
 type ChromeStorageData = { [key: string]: any }
 
 function initializeBookmarkFeature(): void {
-  console.log('Echo GPT: Initializing bookmark feature')
 
   addBookmarkSidebar()
   checkCurrentPageBookmarkStatus()
@@ -30,7 +29,6 @@ function initializeBookmarkFeature(): void {
       if (isConversationPage()) {
         // Only add button if it doesn't exist
         if (!document.querySelector('[data-echo-gpt="bookmark-button"]')) {
-          console.log('Echo GPT: Adding bookmark button after DOM change')
           addBookmarkButton()
         }
         checkCurrentPageBookmarkStatus()
@@ -51,7 +49,6 @@ function initializeBookmarkFeature(): void {
     const url = location.href
     if (url !== lastUrl) {
       lastUrl = url
-      console.log('Echo GPT: URL changed, re-checking conversation page')
       setTimeout(() => {
         if (isConversationPage()) {
           addBookmarkButton()
@@ -79,7 +76,6 @@ function findActionButtonsContainer(): Element | null {
   for (const selector of selectors) {
     const element = document.querySelector(selector)
     if (element) {
-      console.log(`Echo GPT: Found action button using selector: ${selector}`)
       return element
     }
   }
@@ -245,7 +241,6 @@ function extractConversationTitle(): string {
     try {
       const title = strategy()
       if (title) {
-        console.log(`Echo GPT: Found title using strategy: "${title}"`)
         return title
       }
     } catch (error) {
@@ -269,7 +264,6 @@ function isConversationPage(): boolean {
 
 function handleBookmarkClick(button: HTMLButtonElement): void {
   if (!isConversationPage()) {
-    console.log('Echo GPT: Not on a conversation page, skipping bookmark')
     return
   }
 
@@ -435,8 +429,6 @@ function addBookmarkSidebar(): void {
   document.body.appendChild(sidebar)
 
   // Debug: Verify sidebar was added
-  console.log('Echo GPT: Sidebar added to DOM:', document.getElementById('bookmark-sidebar'))
-  console.log('Echo GPT: Sidebar style after creation:', sidebar.style.cssText)
 
   // Attach close button event listener after sidebar is added to DOM
   const closeButton = document.getElementById('close-sidebar')
@@ -444,7 +436,6 @@ function addBookmarkSidebar(): void {
     closeButton.addEventListener('click', (e) => {
       e.preventDefault()
       e.stopPropagation()
-      console.log('Echo GPT: Close button clicked')
 
       const sidebarElement = document.getElementById('bookmark-sidebar')
       const toggleElement = document.getElementById('bookmark-sidebar-toggle')
@@ -523,20 +514,15 @@ function addBookmarkSidebar(): void {
   toggleButton.addEventListener('click', (e) => {
     e.preventDefault()
     e.stopPropagation()
-    console.log('Echo GPT: Toggle button clicked')
 
     const sidebarElement = document.getElementById('bookmark-sidebar')
     const toggleElement = document.getElementById('bookmark-sidebar-toggle')
 
     if (sidebarElement && toggleElement) {
       // Debug: Check current styles
-      console.log('Echo GPT: Sidebar element found:', sidebarElement)
-      console.log('Echo GPT: Sidebar computed style:', window.getComputedStyle(sidebarElement))
-      console.log('Echo GPT: Sidebar transform before:', sidebarElement.style.transform)
 
       // Toggle the sidebar state
       const isOpen = sidebarElement.classList.contains('echo-gpt-open')
-      console.log('Echo GPT: Sidebar currently open:', isOpen)
 
       if (isOpen) {
         sidebarElement.classList.remove('echo-gpt-open')
@@ -547,7 +533,6 @@ function addBookmarkSidebar(): void {
         toggleElement.style.opacity = '1'
         toggleElement.style.pointerEvents = 'auto'
         toggleElement.style.transform = 'translateY(-50%)'
-        console.log('Echo GPT: Closing sidebar')
       } else {
         sidebarElement.classList.add('echo-gpt-open')
         toggleElement.classList.add('echo-gpt-open')
@@ -557,13 +542,9 @@ function addBookmarkSidebar(): void {
         toggleElement.style.opacity = '0'
         toggleElement.style.pointerEvents = 'none'
         loadBookmarks()
-        console.log('Echo GPT: Opening sidebar')
-        console.log('Echo GPT: Sidebar transform after:', sidebarElement.style.transform)
       }
     } else {
       console.error('Echo GPT: Could not find sidebar elements')
-      console.log('Echo GPT: Sidebar element:', sidebarElement)
-      console.log('Echo GPT: Toggle element:', toggleElement)
     }
   })
 
