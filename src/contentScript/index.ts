@@ -13,53 +13,122 @@ interface ChatGPTStorageData {
 type ChromeStorageData = { [key: string]: any }
 
 function initializeBookmarkFeature(): void {
+  console.log('Echo GPT: Initializing bookmark feature')
+
   addBookmarkSidebar()
   checkCurrentPageBookmarkStatus()
 
-  if (window.location.href.includes('/c/')) {
+  if (isConversationPage()) {
     addBookmarkButton()
     checkCurrentPageBookmarkStatus()
   }
 
-  const observer = new MutationObserver(() => {
-    if (
-      window.location.href.includes('/c/') &&
-      !document.querySelector('button[aria-label="Bookmark"]')
-    ) {
-      addBookmarkButton()
-    }
-
-    if (window.location.href.includes('/c/')) {
-      checkCurrentPageBookmarkStatus()
-    }
+  const observer = new MutationObserver((mutations) => {
+    // Debounce the mutations to avoid excessive processing
+    clearTimeout(window.echoGptMutationTimeout)
+    window.echoGptMutationTimeout = setTimeout(() => {
+      if (isConversationPage()) {
+        // Only add button if it doesn't exist
+        if (!document.querySelector('[data-echo-gpt="bookmark-button"]')) {
+          console.log('Echo GPT: Adding bookmark button after DOM change')
+          addBookmarkButton()
+        }
+        checkCurrentPageBookmarkStatus()
+      }
+    }, 100)
   })
 
-  observer.observe(document.body, { childList: true, subtree: true })
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+    attributes: false, // Reduce noise
+    characterData: false // Reduce noise
+  })
+
+  // Also listen for navigation changes (for SPAs)
+  let lastUrl = location.href
+  new MutationObserver(() => {
+    const url = location.href
+    if (url !== lastUrl) {
+      lastUrl = url
+      console.log('Echo GPT: URL changed, re-checking conversation page')
+      setTimeout(() => {
+        if (isConversationPage()) {
+          addBookmarkButton()
+          checkCurrentPageBookmarkStatus()
+        }
+      }, 500) // Give time for the new page to load
+    }
+  }).observe(document, { subtree: true, childList: true })
+}
+
+function findActionButtonsContainer(): Element | null {
+  // Try multiple selectors to find the action buttons container
+  const selectors = [
+    'button[aria-label="Share"]', // Original share button
+    'button[aria-label*="share" i]', // Case insensitive share button
+    '[role="button"][aria-label*="Share"]', // Role-based selector
+    'button[data-testid*="share"]', // Test ID based
+    'button svg[viewBox*="24"]', // SVG-based fallback - look for buttons with 24x24 SVGs
+    '[class*="share" i] button', // Class name containing "share"
+    // Broader fallbacks - look for button containers in conversation areas
+    '[data-testid*="conversation"] button',
+    'main button', // Very broad fallback
+  ]
+
+  for (const selector of selectors) {
+    const element = document.querySelector(selector)
+    if (element) {
+      console.log(`Echo GPT: Found action button using selector: ${selector}`)
+      return element
+    }
+  }
+
+  return null
 }
 
 function addBookmarkButton(): void {
-  const shareButton = document.querySelector('button[aria-label="Share"]')
-
-  if (!shareButton) {
-    setTimeout(addBookmarkButton, 1000)
+  // Check if bookmark button already exists
+  if (document.querySelector('button[aria-label="Bookmark"], [data-echo-gpt="bookmark-button"]')) {
     return
   }
 
-  if (document.querySelector('button[aria-label="Bookmark"]')) {
+  const actionButton = findActionButtonsContainer()
+
+  if (!actionButton) {
+    setTimeout(addBookmarkButton, 1000)
     return
   }
 
   const bookmarkButton = document.createElement('button')
   bookmarkButton.setAttribute('aria-label', 'Bookmark')
-  bookmarkButton.className = shareButton.className
+  bookmarkButton.setAttribute('data-echo-gpt', 'bookmark-button') // Custom attribute to track our button
+
+  // Copy classes from the reference button, but ensure it looks like a proper action button
+  if (actionButton instanceof HTMLButtonElement) {
+    bookmarkButton.className = actionButton.className
+  } else {
+    // Fallback styling if we can't find a proper reference
+    bookmarkButton.className = 'flex items-center justify-center h-10 w-10 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors'
+  }
 
   updateBookmarkButtonState(bookmarkButton)
 
-  bookmarkButton.addEventListener('click', () => {
+  bookmarkButton.addEventListener('click', (e) => {
+    e.preventDefault()
+    e.stopPropagation()
     handleBookmarkClick(bookmarkButton)
   })
 
-  shareButton.parentNode?.insertBefore(bookmarkButton, shareButton)
+  // Try to insert the button near the action button
+  const container = actionButton.parentNode
+  if (container) {
+    container.insertBefore(bookmarkButton, actionButton)
+  } else {
+    // Fallback: append to a common container
+    const fallbackContainer = document.querySelector('main') || document.body
+    fallbackContainer.appendChild(bookmarkButton)
+  }
 }
 
 function updateBookmarkButtonState(button: HTMLButtonElement): void {
@@ -93,27 +162,118 @@ function updateBookmarkButtonState(button: HTMLButtonElement): void {
   })
 }
 
-function handleBookmarkClick(button: HTMLButtonElement): void {
-  if (!window.location.href.includes('/c/')) {
-    return
-  }
-  const allHrefs = document.querySelectorAll('ol a')
-  const hrefs = Array.from(allHrefs).filter(
-    (href) =>
-      href.hasAttribute('href') &&
-      href.getAttribute('href')?.includes(`/c/${window.location.href.split('/').pop()}`),
-  )
+function extractConversationTitle(): string {
+  // Multiple strategies to get the conversation title
+  const strategies = [
+    // Strategy 1: Look for page title or meta title
+    () => {
+      const titleElement = document.querySelector('title')
+      const title = titleElement?.textContent
+      if (title && !title.includes('ChatGPT') && title.trim().length > 0) {
+        return title.trim()
+      }
+      return null
+    },
 
-  let title = 'Untitled Conversation'
-  if (hrefs[0]) {
-    const divWithTitle = hrefs[0].querySelector('div[title]')
-    if (divWithTitle && divWithTitle.getAttribute('title')) {
-      title = divWithTitle.getAttribute('title') || title
-    } else {
-      title = hrefs[0].textContent || title
+    // Strategy 2: Look for heading elements that might contain the conversation title
+    () => {
+      const headings = document.querySelectorAll('h1, h2, h3, [role="heading"]')
+      for (const heading of headings) {
+        const text = heading.textContent?.trim()
+        if (text && text.length > 3 && !text.toLowerCase().includes('chatgpt')) {
+          return text
+        }
+      }
+      return null
+    },
+
+    // Strategy 3: Look in navigation/sidebar for current conversation
+    () => {
+      const currentUrl = window.location.pathname
+      const conversationId = currentUrl.split('/').pop()
+
+      if (conversationId) {
+        // Look for links that match current conversation
+        const navLinks = document.querySelectorAll('nav a, [role="navigation"] a, ol a, ul a')
+        for (const link of navLinks) {
+          const href = link.getAttribute('href')
+          if (href?.includes(conversationId)) {
+            const text = link.textContent?.trim()
+            if (text && text.length > 1) {
+              return text
+            }
+          }
+        }
+      }
+      return null
+    },
+
+    // Strategy 4: Look for any text content that might be the conversation title
+    () => {
+      const titleSelectors = [
+        'span[dir="auto"]',
+        '[data-testid*="conversation"] span',
+        '[data-testid*="title"]',
+        '.conversation-title',
+        '[class*="title"]'
+      ]
+
+      for (const selector of titleSelectors) {
+        const elements = document.querySelectorAll(selector)
+        for (const element of elements) {
+          const text = element.textContent?.trim()
+          if (text && text.length > 3 && text.length < 100) {
+            return text
+          }
+        }
+      }
+      return null
+    },
+
+    // Strategy 5: Extract from URL or use timestamp
+    () => {
+      const conversationId = window.location.pathname.split('/').pop()
+      if (conversationId && conversationId !== 'c') {
+        return `Conversation ${conversationId.substring(0, 8)}`
+      }
+      return `Conversation ${new Date().toLocaleDateString()}`
+    }
+  ]
+
+  // Try each strategy until one works
+  for (const strategy of strategies) {
+    try {
+      const title = strategy()
+      if (title) {
+        console.log(`Echo GPT: Found title using strategy: "${title}"`)
+        return title
+      }
+    } catch (error) {
+      console.warn('Echo GPT: Title extraction strategy failed:', error)
     }
   }
 
+  return 'Untitled Conversation'
+}
+
+function isConversationPage(): boolean {
+  // Multiple ways to detect if we're on a conversation page
+  return (
+    window.location.href.includes('/c/') || // Original pattern
+    window.location.pathname.startsWith('/c/') || // Path-based
+    document.querySelector('[data-testid*="conversation"]') !== null || // Test ID based
+    document.querySelector('main[class*="conversation"]') !== null || // Class based
+    document.title.includes('ChatGPT') // Fallback
+  )
+}
+
+function handleBookmarkClick(button: HTMLButtonElement): void {
+  if (!isConversationPage()) {
+    console.log('Echo GPT: Not on a conversation page, skipping bookmark')
+    return
+  }
+
+  const title = extractConversationTitle()
   const url = window.location.href
 
   chrome.storage.sync.get('chatgptBookmarks', (data: ChromeStorageData) => {
@@ -171,7 +331,23 @@ function addBookmarkSidebar(): void {
   const toggleButton = document.createElement('button')
   toggleButton.id = 'bookmark-sidebar-toggle'
   toggleButton.className =
-    'fixed right-0 top-1/2 -translate-y-1/2 bg-[#2A2A2A] hover:bg-[#3A3A3A] p-2.5 rounded-l-md shadow-lg z-40 transition-all duration-300'
+    'fixed right-0 top-1/2 bg-[#2A2A2A] hover:bg-[#3A3A3A] p-2.5 rounded-l-md shadow-lg transition-all duration-300'
+  toggleButton.style.cssText = `
+    position: fixed !important;
+    right: 0 !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    z-index: 999999 !important;
+    background: linear-gradient(135deg, #2d333b 0%, #1c2128 100%) !important;
+    color: #f0f6fc !important;
+    border: 1px solid #30363d !important;
+    cursor: pointer !important;
+    padding: 12px !important;
+    border-radius: 8px 0 0 8px !important;
+    box-shadow: -4px 0 16px rgba(0,0,0,0.4), 0 4px 8px rgba(0,0,0,0.2) !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    backdrop-filter: blur(8px) !important;
+  `
   toggleButton.innerHTML = `
     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform duration-300">
       <polyline points="15 18 9 12 15 6"></polyline>
@@ -181,101 +357,231 @@ function addBookmarkSidebar(): void {
   const sidebar = document.createElement('div')
   sidebar.id = 'bookmark-sidebar'
   sidebar.className =
-    'fixed right-0 top-0 w-80 h-full bg-black shadow-xl transform translate-x-full transition-transform duration-300 ease-in-out z-30 flex flex-col'
+    'fixed right-0 top-0 w-80 h-full bg-black shadow-xl flex flex-col'
+  sidebar.style.cssText = `
+    position: fixed !important;
+    right: 0 !important;
+    top: 0 !important;
+    width: 350px !important;
+    height: 100vh !important;
+    background: linear-gradient(145deg, #1a1a1a 0%, #0d1117 100%) !important;
+    z-index: 999998 !important;
+    transform: translateX(100%) !important;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: -8px 0 32px rgba(0,0,0,0.6), -4px 0 16px rgba(0,0,0,0.4) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    border-left: 1px solid #30363d !important;
+    backdrop-filter: blur(8px) !important;
+  `
   sidebar.innerHTML = `
-    <div class="p-4 border-b border-[#2A2A2A] flex justify-between items-center">
-      <h2 class="text-lg font-medium text-white">Bookmarks</h2>
-      <button id="close-sidebar" class="p-1.5 rounded-full hover:bg-[#2A2A2A] transition-colors duration-200">
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <div style="
+      padding: 20px 24px; 
+      border-bottom: 1px solid #30363d; 
+      display: flex; 
+      justify-content: space-between; 
+      align-items: center;
+      background: linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.01) 100%);
+    ">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="none" style="color: #58a6ff;">
+          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+        </svg>
+        <h2 style="font-size: 20px; font-weight: 600; color: #f0f6fc; margin: 0; letter-spacing: -0.02em;">Bookmarks</h2>
+      </div>
+      <button id="close-sidebar" style="
+        padding: 8px; 
+        border-radius: 8px; 
+        background: transparent; 
+        border: none; 
+        cursor: pointer; 
+        color: #8b949e; 
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      ">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="18" y1="6" x2="6" y2="18"></line>
           <line x1="6" y1="6" x2="18" y2="18"></line>
         </svg>
       </button>
     </div>
-    <div id="bookmarks-list" class="flex-1 overflow-y-auto p-4">
-      <div class="text-center py-4 text-gray-400">Loading bookmarks...</div>
+    <div id="bookmarks-list" style="
+      flex: 1; 
+      overflow-y: auto; 
+      padding: 16px;
+      background: rgba(0,0,0,0.2);
+    ">
+      <div style="
+        text-align: center; 
+        padding: 32px 16px; 
+        color: #8b949e;
+        font-size: 14px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+      ">
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity: 0.5;">
+          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+        </svg>
+        <span>Loading bookmarks...</span>
+      </div>
     </div>
   `
 
   document.body.appendChild(toggleButton)
   document.body.appendChild(sidebar)
 
+  // Debug: Verify sidebar was added
+  console.log('Echo GPT: Sidebar added to DOM:', document.getElementById('bookmark-sidebar'))
+  console.log('Echo GPT: Sidebar style after creation:', sidebar.style.cssText)
+
+  // Attach close button event listener after sidebar is added to DOM
+  const closeButton = document.getElementById('close-sidebar')
+  if (closeButton) {
+    closeButton.addEventListener('click', (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      console.log('Echo GPT: Close button clicked')
+
+      const sidebarElement = document.getElementById('bookmark-sidebar')
+      const toggleElement = document.getElementById('bookmark-sidebar-toggle')
+
+      if (sidebarElement) {
+        sidebarElement.classList.remove('echo-gpt-open')
+        sidebarElement.style.transform = 'translateX(100%)'
+      }
+
+      if (toggleElement) {
+        toggleElement.classList.remove('echo-gpt-open')
+        // Show toggle button when sidebar is closed
+        toggleElement.style.opacity = '1'
+        toggleElement.style.pointerEvents = 'auto'
+        toggleElement.style.transform = 'translateY(-50%)'
+      }
+    })
+    closeButton.addEventListener('mouseenter', () => {
+      closeButton.style.backgroundColor = '#30363d'
+      closeButton.style.color = '#f0f6fc'
+      closeButton.style.transform = 'scale(1.1)'
+    })
+    closeButton.addEventListener('mouseleave', () => {
+      closeButton.style.backgroundColor = 'transparent'
+      closeButton.style.color = '#8b949e'
+      closeButton.style.transform = 'scale(1)'
+    })
+  }
+
   const style = document.createElement('style')
   style.textContent = `
-    #bookmark-sidebar.open {
+    #bookmark-sidebar.echo-gpt-open {
       transform: translateX(0) !important;
     }
-    #bookmark-sidebar:not(.open) {
+    #bookmark-sidebar:not(.echo-gpt-open) {
       transform: translateX(100%) !important;
     }
-    #bookmark-sidebar-toggle.open svg {
-      transform: rotate(180deg);
-    }
-    #bookmark-sidebar-toggle {
-      opacity: 0.7;
-      z-index: 1000;
-    }
-    #bookmark-sidebar {
-      z-index: 1001;
+    #bookmark-sidebar-toggle.echo-gpt-open svg {
+      transform: rotate(180deg) !important;
     }
     #bookmark-sidebar-toggle:hover {
-      opacity: 1;
+      background: linear-gradient(135deg, #3d444d 0%, #2d333b 100%) !important;
+      transform: translateY(-50%) scale(1.05) !important;
+      box-shadow: -6px 0 20px rgba(0,0,0,0.5), 0 6px 12px rgba(0,0,0,0.3) !important;
+    }
+    #bookmark-sidebar-toggle:active {
+      transform: translateY(-50%) scale(0.95) !important;
     }
     #bookmarks-list::-webkit-scrollbar {
-      width: 6px;
+      width: 8px;
     }
     #bookmarks-list::-webkit-scrollbar-track {
-      background: #1a1a1a;
+      background: rgba(0,0,0,0.1);
+      border-radius: 4px;
     }
     #bookmarks-list::-webkit-scrollbar-thumb {
-      background-color: #3a3a3a;
-      border-radius: 6px;
+      background: linear-gradient(180deg, #30363d 0%, #21262d 100%);
+      border-radius: 4px;
+      border: 1px solid #21262d;
+    }
+    #bookmarks-list::-webkit-scrollbar-thumb:hover {
+      background: linear-gradient(180deg, #3d444d 0%, #30363d 100%);
+    }
+    /* Override any conflicting styles from ChatGPT */
+    #bookmark-sidebar * {
+      box-sizing: border-box !important;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif !important;
+    }
+    /* Smooth animations for all echo-gpt elements */
+    [id*="echo-gpt"], [data-echo-gpt] {
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
   `
   document.head.appendChild(style)
 
-  toggleButton.addEventListener('click', () => {
+  toggleButton.addEventListener('click', (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    console.log('Echo GPT: Toggle button clicked')
+
     const sidebarElement = document.getElementById('bookmark-sidebar')
     const toggleElement = document.getElementById('bookmark-sidebar-toggle')
 
     if (sidebarElement && toggleElement) {
+      // Debug: Check current styles
+      console.log('Echo GPT: Sidebar element found:', sidebarElement)
+      console.log('Echo GPT: Sidebar computed style:', window.getComputedStyle(sidebarElement))
+      console.log('Echo GPT: Sidebar transform before:', sidebarElement.style.transform)
+
       // Toggle the sidebar state
-      const isOpen = sidebarElement.classList.contains('open')
+      const isOpen = sidebarElement.classList.contains('echo-gpt-open')
+      console.log('Echo GPT: Sidebar currently open:', isOpen)
 
       if (isOpen) {
-        sidebarElement.classList.remove('open')
-        toggleElement.classList.remove('open')
+        sidebarElement.classList.remove('echo-gpt-open')
+        toggleElement.classList.remove('echo-gpt-open')
+        // Force transform to hide sidebar
+        sidebarElement.style.transform = 'translateX(100%)'
+        // Show toggle button when sidebar is closed
+        toggleElement.style.opacity = '1'
+        toggleElement.style.pointerEvents = 'auto'
+        toggleElement.style.transform = 'translateY(-50%)'
+        console.log('Echo GPT: Closing sidebar')
       } else {
-        sidebarElement.classList.add('open')
-        toggleElement.classList.add('open')
+        sidebarElement.classList.add('echo-gpt-open')
+        toggleElement.classList.add('echo-gpt-open')
+        // Force transform to show sidebar
+        sidebarElement.style.transform = 'translateX(0)'
+        // Hide toggle button when sidebar is open
+        toggleElement.style.opacity = '0'
+        toggleElement.style.pointerEvents = 'none'
         loadBookmarks()
+        console.log('Echo GPT: Opening sidebar')
+        console.log('Echo GPT: Sidebar transform after:', sidebarElement.style.transform)
       }
+    } else {
+      console.error('Echo GPT: Could not find sidebar elements')
+      console.log('Echo GPT: Sidebar element:', sidebarElement)
+      console.log('Echo GPT: Toggle element:', toggleElement)
     }
   })
 
-  document.getElementById('close-sidebar')?.addEventListener('click', () => {
-    const sidebarElement = document.getElementById('bookmark-sidebar')
-    const toggleElement = document.getElementById('bookmark-sidebar-toggle')
 
-    if (sidebarElement) {
-      sidebarElement.classList.remove('open')
-    }
-
-    if (toggleElement) {
-      toggleElement.classList.remove('open')
-    }
-  })
-
-  // Ensure sidebar is initially hidden
+  // Ensure sidebar is initially hidden and toggle button is visible
   const sidebarElement = document.getElementById('bookmark-sidebar')
   const toggleElement = document.getElementById('bookmark-sidebar-toggle')
 
   if (sidebarElement) {
-    sidebarElement.classList.remove('open')
+    sidebarElement.classList.remove('echo-gpt-open')
+    sidebarElement.style.transform = 'translateX(100%)'
   }
 
   if (toggleElement) {
-    toggleElement.classList.remove('open')
+    toggleElement.classList.remove('echo-gpt-open')
+    // Ensure toggle button is visible initially
+    toggleElement.style.opacity = '1'
+    toggleElement.style.pointerEvents = 'auto'
   }
 }
 
@@ -328,15 +634,14 @@ function loadBookmarks(): void {
               Remove
             </button>
             <button class="pin-btn flex items-center gap-1.5 px-3 py-1.5 text-xs bg-[#2A2A2A] hover:bg-[#3A3A3A] text-white rounded-md transition-colors duration-200" data-id="${bookmark.id}">
-              ${
-                bookmark.pinned
-                  ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+              ${bookmark.pinned
+          ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
                       <path d="M16 3V5H18V9L21 12V13H14V21H10V13H3V12L6 9V5H8V3H16Z"/>
                     </svg>`
-                  : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"xmlns="http://www.w3.org/2000/svg">
+          : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"xmlns="http://www.w3.org/2000/svg">
                       <path d="M16 3V5H18V9L21 12V13H14V21H10V13H3V12L6 9V5H8V3H16Z"/>
                     </svg>`
-              }
+        }
               ${bookmark.pinned ? 'Unpin' : 'Pin'}
             </button>
           </div>
@@ -405,7 +710,7 @@ function deleteBookmark(id: number): void {
       loadBookmarks()
 
       const bookmarkButton = document.querySelector(
-        'button[aria-label="Bookmark"]',
+        'button[aria-label="Bookmark"], [data-echo-gpt="bookmark-button"]',
       ) as HTMLButtonElement
 
       if (bookmarkButton) {
@@ -434,7 +739,7 @@ function pinBookmark(id: number): void {
 
 function checkCurrentPageBookmarkStatus(): void {
   const bookmarkButton = document.querySelector(
-    'button[aria-label="Bookmark"]',
+    'button[aria-label="Bookmark"], [data-echo-gpt="bookmark-button"]',
   ) as HTMLButtonElement
 
   if (bookmarkButton) {
