@@ -2,6 +2,8 @@
 
 A Chrome extension that enhances your ChatGPT experience by adding bookmark and pinned conversations feature.
 
+[Demo](https://drive.google.com/file/d/1EmjtNlIfResxVNbjZccqmUYiSPvIQESu/view?usp=sharing)
+
 ## Features
 
 - Bookmark your favorite ChatGPT conversations
